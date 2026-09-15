@@ -6,15 +6,19 @@
 
 Type any airport's four-letter ICAO code on the NES controller, press Start, and the aircraft actually flying near that airport *right now* appear as moving targets on your TV.
 
-It works for airports worldwide. Point it at your local field and watch the approach traffic line up, or at KLAX and watch it get busy. Watch this quick [video demo](https://youtube.com/shorts/Oe8KoSeiIBw?is=U8YdVTy6Am7p5CTu).
+It works for airports worldwide. Point it at your local field and watch the approach traffic line up, or at KLAX and watch it get busy. Watch this quick [video demo](https://youtu.be/hZ8sniz4Z2M?si=-s4Dm2YlZwRVx9xd).
 
-![NES Radar scope screen](assets/nes-radar-scope.png)
+[![NES Radar scope screen](assets/8bitradar-youtube.png)](https://youtu.be/hZ8sniz4Z2M?si=-s4Dm2YlZwRVx9xd)
 
 The NES can't reach the Internet, so a small server on your computer fetches live traffic from [adsb.fi](https://adsb.fi) and streams it down the controller cable. The NES sends your airport choice back up the same cable.
 
 This project is based on [c64u-radar](https://github.com/k6lcm/c64u-radar), a similar program for the Commodore 64.
 
 ---
+
+
+![NES Radar scope screen](assets/nes-radar-scope.png)
+
 
 ## What you need
 
