@@ -1,5 +1,13 @@
 # Changelog
 
+## Server 0.4.4-build2
+
+- Remains paired with the 0.4.4 ROM and does not change the serial protocol.
+- Refreshes the bundled OurAirports ICAO database at startup when the newest
+  cached copy is at least 30 days old.
+- Keeps the existing database when both download sources fail and reports the
+  refresh error in the server log.
+
 ## 0.4.4
 
 - Paired 16×16 aircraft targets now keep flickering through `LINK RECEIVING`.

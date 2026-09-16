@@ -146,7 +146,7 @@ Python, pyserial, and HTTPS certificate bundle, so there's nothing to install.
 Unzip it and start the launcher:
 
 ```
-cd NES-Radar-0.4.4-macos-universal
+cd NES-Radar-0.4.4-build2-macos-universal
 ./start_nes_radar_server.command
 ```
 

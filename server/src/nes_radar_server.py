@@ -59,7 +59,7 @@ CERTIFICATE_BUNDLE = Path(certifi.where()).resolve()
 os.environ.setdefault("SSL_CERT_FILE", str(CERTIFICATE_BUNDLE))
 
 BAUD = 9600
-APP_VERSION = "0.4.4"
+APP_VERSION = "0.4.4-build2"
 
 # The pinned C64U Radar module identifies its own project in outgoing requests,
 # so without this every adsb.fi call from NES Radar would be attributed to the

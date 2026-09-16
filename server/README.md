@@ -1,4 +1,4 @@
-# NES Radar Server 0.4.4
+# NES Radar Server 0.4.4-build2
 
 Paired with the NES Radar V0.4.4 ROM.
 
@@ -43,7 +43,7 @@ server.
 ```text
 --self-test    offline packaging check; run before wiring anything up
 --help         all flags, including --port and the chunked-send controls
---version      prints 0.4.4
+--version      prints 0.4.4-build2
 ```
 
 The chunked-send defaults (`--chunk-bytes 8`, `--chunk-gap 0.030`) are what
