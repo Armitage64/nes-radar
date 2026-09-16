@@ -7,6 +7,9 @@
   cached copy is at least 30 days old.
 - Keeps the existing database when both download sources fail and reports the
   refresh error in the server log.
+- Uses the OurAirports GPS code when its ICAO field is blank, so airports such
+  as KCMA remain available after an automatic refresh.
+- Adds KCMA to the bundled offline airport database.
 
 ## 0.4.4
 
