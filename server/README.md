@@ -1,4 +1,4 @@
-# NES Radar Server 0.4.4
+# NES Radar Server 0.4.4-build2
 
 Paired with the NES Radar V0.4.4 ROM.
 
@@ -43,7 +43,7 @@ server.
 ```text
 --self-test    offline packaging check; run before wiring anything up
 --help         all flags, including --port and the chunked-send controls
---version      prints 0.4.4
+--version      prints 0.4.4-build2
 ```
 
 The chunked-send defaults (`--chunk-bytes 8`, `--chunk-gap 0.030`) are what
@@ -54,9 +54,13 @@ The matching server also sends one-byte display heartbeats in the idle part of
 `LINK RECEIVING`. They keep the ROM's existing paired-sprite priority rotation
 moving and stop before the next traffic packet.
 
-Stop with Ctrl-C. Needs outbound HTTPS to `opendata.adsb.fi`. Native builds
-carry their own trusted CA certificate bundle; users do not need to install
-Python certificates or set `SSL_CERT_FILE`.
+Stop with Ctrl-C. Needs outbound HTTPS to `opendata.adsb.fi` and OurAirports.
+The bundled airport database remains available offline. When it is more than
+30 days old, the server refreshes it at startup and saves the updated copy in
+`~/.nes-radar/airports_cache.json`. If the refresh fails, the server reports
+the error and continues with the existing database. Native builds carry their
+own trusted CA certificate bundle; users do not need to install Python
+certificates or set `SSL_CERT_FILE`.
 
 ## More
 

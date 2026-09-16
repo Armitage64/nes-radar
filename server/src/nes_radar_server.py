@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from dataclasses import dataclass
 from enum import Enum, auto
+import io
 import json
 import math
 import os
@@ -17,6 +19,7 @@ import sys
 import threading
 import time
 from typing import Callable, Iterable, Mapping
+import urllib.request
 
 import certifi
 import serial
@@ -56,7 +59,7 @@ CERTIFICATE_BUNDLE = Path(certifi.where()).resolve()
 os.environ.setdefault("SSL_CERT_FILE", str(CERTIFICATE_BUNDLE))
 
 BAUD = 9600
-APP_VERSION = "0.4.4"
+APP_VERSION = "0.4.4-build2"
 
 # The pinned C64U Radar module identifies its own project in outgoing requests,
 # so without this every adsb.fi call from NES Radar would be attributed to the
@@ -103,11 +106,19 @@ LDV_PIXELS_PER_NM = LDV_RADIUS_PIXELS / DEFAULT_RANGE_NM
 RETRY_DELAYS_SECONDS = (1.0, 2.0, 4.0, 5.0)
 MONITOR_JOIN_SECONDS = 0.5
 SERIAL_IO_ERRORS = (serial.SerialException, OSError)
+AIRPORT_CACHE_DAYS = 30.0
+AIRPORT_DOWNLOAD_TIMEOUT_SECONDS = 60.0
+AIRPORTS_CSV_URL = "https://davidmegginson.github.io/ourairports-data/airports.csv"
+AIRPORTS_CSV_FALLBACK_URL = (
+    "https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv"
+)
 
 SOURCE_ROOT = Path(__file__).resolve().parent
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", SOURCE_ROOT))
 AIRPORT_CACHE = RESOURCE_ROOT / "data" / "airports_cache.json"
+USER_AIRPORT_CACHE = Path.home() / ".nes-radar" / "airports_cache.json"
 LOCAL_AIRPORTS = RESOURCE_ROOT / "data" / "airports"
+AIRPORTS: dict[str, tuple[float, float]] | None = None
 
 
 class SerialTransportError(Exception):
@@ -451,7 +462,97 @@ def scene_flags(snapshot) -> int:
     return flags
 
 
+def parse_airports_csv(data: bytes) -> dict[str, tuple[float, float]]:
+    """Extract four-letter ICAO coordinates from the OurAirports CSV."""
+    result: dict[str, tuple[float, float]] = {}
+    text = io.StringIO(data.decode("utf-8-sig"))
+    for row in csv.DictReader(text):
+        code = (row.get("icao_code") or "").strip().upper()
+        if len(code) != 4 or not code.isalpha():
+            continue
+        try:
+            scope = C64.Scope(
+                float(row["latitude_deg"]),
+                float(row["longitude_deg"]),
+                DEFAULT_RANGE_NM,
+            ).validated()
+        except (KeyError, TypeError, ValueError, C64.ConfigurationError):
+            continue
+        result[code] = (scope.latitude, scope.longitude)
+    return result
+
+
+def _read_airport_cache(path: Path) -> tuple[dict[str, tuple[float, float]], float]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        airports = {
+            str(code): (float(position[0]), float(position[1]))
+            for code, position in raw["airports"].items()
+        }
+        return airports, float(raw.get("updated", 0))
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return {}, 0.0
+
+
+def load_airport_database(
+    cache_path: Path = USER_AIRPORT_CACHE,
+    bundled_path: Path = AIRPORT_CACHE,
+    *,
+    now: float | None = None,
+    opener: Callable[..., object] | None = None,
+) -> str:
+    """Load the newest cache and refresh it from OurAirports when stale."""
+    global AIRPORTS
+    now = time.time() if now is None else now
+    opener = urllib.request.urlopen if opener is None else opener
+
+    cached, updated = _read_airport_cache(bundled_path)
+    user_cached, user_updated = _read_airport_cache(cache_path)
+    if user_cached and user_updated >= updated:
+        cached, updated = user_cached, user_updated
+
+    warning: str | None = None
+    if not cached or now - updated >= AIRPORT_CACHE_DAYS * 86400.0:
+        errors: list[str] = []
+        for url in (AIRPORTS_CSV_URL, AIRPORTS_CSV_FALLBACK_URL):
+            try:
+                request = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": C64.USER_AGENT, "Accept": "text/csv"},
+                )
+                with opener(request, timeout=AIRPORT_DOWNLOAD_TIMEOUT_SECONDS) as response:
+                    downloaded = parse_airports_csv(response.read())
+                if len(downloaded) < 1000:
+                    raise ValueError("download did not contain a full ICAO table")
+                cached = downloaded
+                updated = now
+                try:
+                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+                    cache_path.write_text(
+                        json.dumps(
+                            {"updated": updated, "airports": cached},
+                            separators=(",", ":"),
+                        ),
+                        encoding="utf-8",
+                    )
+                except OSError as error:
+                    warning = f"airport cache could not be saved: {error}"
+                break
+            except Exception as error:
+                errors.append(f"{url}: {error}")
+        else:
+            warning = "airport database refresh failed: " + " | ".join(errors)
+
+    AIRPORTS = cached
+    if len(cached) < 1000:
+        message = f"ICAO WARNING: only {len(cached)} airport(s) available"
+    else:
+        message = f"ICAO database: {len(cached):,} airport(s) available"
+    return f"{message}; {warning}" if warning else message
+
+
 def resolve_airport(code: str) -> tuple[float, float]:
+    global AIRPORTS
     code = code.strip().upper()
     if len(code) != 4 or not code.isalpha():
         raise ValueError("ICAO must contain four letters")
@@ -459,11 +560,12 @@ def resolve_airport(code: str) -> tuple[float, float]:
     if local_path.exists():
         raw = json.loads(local_path.read_text())
         return float(raw["lat"]), float(raw["lon"])
-    raw = json.loads(AIRPORT_CACHE.read_text())
+    if AIRPORTS is None:
+        AIRPORTS, _updated = _read_airport_cache(AIRPORT_CACHE)
     try:
-        latitude, longitude = raw["airports"][code]
+        latitude, longitude = AIRPORTS[code]
     except KeyError as error:
-        raise ValueError(f"ICAO {code} is not in the pinned airport cache") from error
+        raise ValueError(f"ICAO {code} is not in the airport database") from error
     return float(latitude), float(longitude)
 
 
@@ -1241,7 +1343,10 @@ def main() -> int:
     args = parse_args()
     if args.self_test:
         return self_test()
-    return clear_screen(args) if args.clear else run(args)
+    if args.clear:
+        return clear_screen(args)
+    print(load_airport_database(), flush=True)
+    return run(args)
 
 
 if __name__ == "__main__":
