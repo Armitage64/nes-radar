@@ -198,6 +198,10 @@ python start_nes_radar_server.py
 The macOS binary carries Python, pyserial, and the CA bundle; binary users
 install none of these separately.
 
+The server ships with an airport database for offline startup. When that data
+is more than 30 days old, the server refreshes it automatically from
+OurAirports and keeps the last working copy if an update fails.
+
 Real-hardware acceptance has been done on macOS. Treat Windows and Linux as the experimental path.
 
 ## Using it

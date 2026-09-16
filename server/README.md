@@ -54,9 +54,13 @@ The matching server also sends one-byte display heartbeats in the idle part of
 `LINK RECEIVING`. They keep the ROM's existing paired-sprite priority rotation
 moving and stop before the next traffic packet.
 
-Stop with Ctrl-C. Needs outbound HTTPS to `opendata.adsb.fi`. Native builds
-carry their own trusted CA certificate bundle; users do not need to install
-Python certificates or set `SSL_CERT_FILE`.
+Stop with Ctrl-C. Needs outbound HTTPS to `opendata.adsb.fi` and OurAirports.
+The bundled airport database remains available offline. When it is more than
+30 days old, the server refreshes it at startup and saves the updated copy in
+`~/.nes-radar/airports_cache.json`. If the refresh fails, the server reports
+the error and continues with the existing database. Native builds carry their
+own trusted CA certificate bundle; users do not need to install Python
+certificates or set `SSL_CERT_FILE`.
 
 ## More
 
