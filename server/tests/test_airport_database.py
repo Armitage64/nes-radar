@@ -38,7 +38,7 @@ class AirportDatabaseTests(unittest.TestCase):
     def tearDown(self):
         radar.AIRPORTS = None
 
-    def test_parse_ourairports_icao_coordinates_only(self):
+    def test_parse_ourairports_falls_back_to_gps_code(self):
         data = (
             b"id,ident,latitude_deg,longitude_deg,icao_code,gps_code\n"
             b"1,KSBA,34.426201,-119.839996,KSBA,KSBA\n"
@@ -48,7 +48,12 @@ class AirportDatabaseTests(unittest.TestCase):
         airports = radar.parse_airports_csv(data)
 
         self.assertEqual(airports["KSBA"], (34.426201, -119.839996))
-        self.assertNotIn("KCMA", airports)
+        self.assertEqual(airports["KCMA"], (34.213699, -119.094002))
+
+    def test_bundled_database_contains_kcma(self):
+        airports, _ = radar._read_airport_cache(radar.AIRPORT_CACHE)
+
+        self.assertEqual(airports["KCMA"], (34.213699, -119.094002))
 
     def test_fresh_user_cache_skips_download(self):
         with tempfile.TemporaryDirectory() as directory:

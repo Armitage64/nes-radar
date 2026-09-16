@@ -463,11 +463,11 @@ def scene_flags(snapshot) -> int:
 
 
 def parse_airports_csv(data: bytes) -> dict[str, tuple[float, float]]:
-    """Extract four-letter ICAO coordinates from the OurAirports CSV."""
+    """Extract four-letter ICAO or fallback GPS coordinates from OurAirports."""
     result: dict[str, tuple[float, float]] = {}
     text = io.StringIO(data.decode("utf-8-sig"))
     for row in csv.DictReader(text):
-        code = (row.get("icao_code") or "").strip().upper()
+        code = (row.get("icao_code") or row.get("gps_code") or "").strip().upper()
         if len(code) != 4 or not code.isalpha():
             continue
         try:
