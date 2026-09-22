@@ -70,16 +70,18 @@ class StatusScreen:
     def off(self):
         self.lcd.setBrightness(0)
 
-    def refresh(self, force=False):
-        now = clock.ticks_ms()
+    def refresh(self, force=False, now=False):
+        """Draw changed rows. force redraws everything; now skips the rate limit."""
+        ticks = clock.ticks_ms()
         if force:
             self._dirty = set(ROWS)
             self._header_dirty = True
         elif not self._dirty and not self._header_dirty:
             return
-        elif self._last_draw is not None and clock.ticks_diff(now, self._last_draw) < REDRAW_MS:
+        elif (not now and self._last_draw is not None
+              and clock.ticks_diff(ticks, self._last_draw) < REDRAW_MS):
             return
-        self._last_draw = now
+        self._last_draw = ticks
         self.lcd.startWrite()
         try:
             if self._header_dirty:

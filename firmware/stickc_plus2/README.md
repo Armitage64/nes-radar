@@ -22,7 +22,7 @@ and battery support.
 | Serial | FT232R over USB | ESP32 UART1, G26 TX / G36 RX (top header), 9600 8N1 |
 | Level shifting | built into the 5 V cable | **you add it**: two NPN transistors (below) |
 | Airport choice | NES controller (`--nes-icao`) | same, or a fixed `icao` in `config.json` |
-| Wi‑Fi | the computer's | the network saved in UIFlow, or `config.json` |
+| Wi‑Fi | the computer's | the network saved in M5Burner / UIFlow |
 | Airport data | refreshed from OurAirports every 30 days | packed from `server/src/data` at deploy time |
 | Status | terminal | the Stick's LCD |
 
@@ -213,8 +213,17 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
    - If it shows the UIFlow launcher at power‑on, it already has it.
    - Otherwise, flash **UIFlow2.0 StickC Plus2** with M5Stack's
      [M5Burner](https://docs.m5stack.com/en/uiflow2/m5burner/intro).
-   - Either way, set up Wi‑Fi in UIFlow (M5Burner's configure step, or the
-     launcher's setup). NES Radar joins the same network.
+   - Either way, set up Wi‑Fi in M5Burner's configure step (or UIFlow's
+     launcher). NES Radar joins only that network. Wi‑Fi credentials are
+     deliberately never read from `config.json`, so they don't sit in a plain
+     file on the Stick or next to the source.
+   - **Blank screen at power‑on?** UIFlow's own `boot.py` stops with
+     `ESP_ERR_NVS_NOT_FOUND` when no Wi‑Fi is saved, before NES Radar can
+     start. If M5Burner's configure step doesn't save it, run
+     `python3 tools/set_wifi.py` **in your own terminal**. It prompts for the
+     network name and, without echoing, the password, and writes them to the
+     Stick over USB. The password never goes to a file, your shell history, or
+     a command line.
 2. **Configure (optional).** Everything has a working default, so you only need
    a `config.json` to change something. To make one, copy `config.example.json`
    to `config.json` next to it:
@@ -223,8 +232,6 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
      bench.
    - `invert`: leave it `true` for the NPN shifter. Set it to `false` for the
      TXU0202 or two‑buffer alternatives.
-   - `ssid` and `password`: add these only to use a different Wi‑Fi network from
-     the one saved in UIFlow.
 3. **Deploy.** Connect the Stick by USB‑C, run `pip install mpremote`, then
    `tools/deploy.sh`. The script:
    - packs `airports.bin` from `server/src/data`;
@@ -287,6 +294,7 @@ Use USB‑C for long sessions.
 | `nesradar/net.py`, `board.py`, `ui.py`, `device.py` | Wi‑Fi/HTTPS, link UART and UIFlow `M5` hardware, status screen, wiring (UIFlow only) |
 | `tools/build_airports.py`, `tools/deploy.sh` | airport packing and deployment |
 | `tools/tx_pattern.py`, `tools/rx_monitor.py` | bench helpers for the scope tests, run with `mpremote run` |
+| `tools/set_wifi.py` | saves Wi‑Fi into UIFlow's settings when M5Burner doesn't |
 | `tests/` | parity, session, and MicroPython golden‑vector tests |
 
 ## Validation

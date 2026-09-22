@@ -1,9 +1,10 @@
 """Wire the Stick's hardware to Session (UIFlow 2.0 firmware only).
 
-UIFlow keeps the user's files under /flash and the Wi-Fi network it was set
-up with in NVS ("uiflow": ssid0/pswd0). NES Radar joins that network unless
-/flash/config.json names a different one, so a Stick already set up in UIFlow
-needs no Wi-Fi configuration at all.
+UIFlow keeps the user's files under /flash and the Wi-Fi network set up in
+M5Burner (or UIFlow's launcher) in NVS ("uiflow": ssid0/pswd0). NES Radar
+joins only that network. Wi-Fi credentials are deliberately not read from
+config.json, so they never sit in a plain file on the Stick or next to the
+source.
 """
 
 import gc
@@ -27,12 +28,19 @@ RETRY_DELAY_MS = 2000
 
 
 def uiflow_wifi():
-    """(ssid, password) saved by UIFlow's setup, or ("", "")."""
+    """(ssid, password) saved by M5Burner or UIFlow's setup."""
+    nvs = esp32.NVS("uiflow")
     try:
-        nvs = esp32.NVS("uiflow")
-        return nvs.get_str("ssid0") or "", nvs.get_str("pswd0") or ""
-    except (OSError, AttributeError):
-        return "", ""
+        ssid = nvs.get_str("ssid0")
+    except OSError:
+        ssid = ""
+    if not ssid:
+        raise ValueError("No Wi-Fi saved. Use M5Burner.")
+    try:
+        password = nvs.get_str("pswd0")
+    except OSError:
+        password = ""
+    return ssid, password
 
 
 def load_config():
@@ -40,12 +48,8 @@ def load_config():
         with open(CONFIG_PATH) as handle:
             config = json.load(handle)
     except OSError:
-        config = {}  # config.json is optional on UIFlow
-    if not config.get("ssid"):
-        ssid, password = uiflow_wifi()
-        if not ssid:
-            raise ValueError("no Wi-Fi: set it up in UIFlow or put ssid in config.json")
-        config["ssid"], config["password"] = ssid, password
+        config = {}  # config.json is optional
+    config["ssid"], config["password"] = uiflow_wifi()
     # The same floors parse_args() enforces on the desktop.
     if config.get("byte_guard_ms", 5) < 1:
         raise ValueError("byte_guard_ms must be at least 1")
@@ -83,8 +87,9 @@ class Device:
         self.screen.refresh()
 
     def status(self, **fields):
+        # State changes draw at once; only idle() refreshes are rate-limited.
         self.screen.set(**fields)
-        self.screen.refresh()
+        self.screen.refresh(now=True)
 
     def fetch_json(self, latitude, longitude, dist_nm):
         if not net.is_connected():
