@@ -28,7 +28,7 @@ else
     set -- mpremote connect "$PORT"
 fi
 
-"$@" exec "
+if ! "$@" exec "
 import os
 try:
     os.stat('/flash/main_uiflow.py')
@@ -42,7 +42,14 @@ try:
     os.mkdir('/flash/nesradar')
 except OSError:
     pass
-"
+"; then
+    echo "" >&2
+    echo "Could not reach the Stick's REPL. Either an app is running and will" >&2
+    echo "not stop, or the Stick is not running UIFlow at all. Check with:" >&2
+    echo "    python3 tools/erase_apps.py --dry-run" >&2
+    echo "It erases the stuck app, or says to reflash UIFlow with M5Burner." >&2
+    exit 1
+fi
 for module in "$HERE"/nesradar/*.py; do
     "$@" cp "$module" ":/flash/nesradar/$(basename "$module")"
 done

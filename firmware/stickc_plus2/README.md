@@ -243,6 +243,27 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
 
    Re‑run it after a server airport‑data refresh to update the Stick's table.
 
+   **"could not enter raw repl"?** Another app on the Stick is running and
+   won't give up the REPL, so `mpremote` can't interrupt it. Erase the Stick's
+   user files and deploy again:
+
+   ```
+   pip install esptool
+   python3 tools/erase_apps.py      # add --dry-run to only show what it would erase
+   tools/deploy.sh
+   ```
+
+   `erase_apps.py` goes through the chip's bootloader, so no running app can
+   block it. It erases only UIFlow's `/flash` partition (every app, `main.py`,
+   and `boot.py`, which UIFlow recreates on the next boot). The firmware,
+   UIFlow's fonts and images, and your saved Wi‑Fi are kept.
+
+   If the Stick has other firmware entirely (for example an Arduino sketch,
+   whose partitions are named `app0`, `app1`, and `spiffs`), UIFlow is gone
+   and there is no REPL at all. `erase_apps.py` says so and erases nothing.
+   Reflash UIFlow 2.0 with M5Burner, then run `tools/set_wifi.py` (a full
+   reflash usually clears the saved Wi‑Fi) and `tools/deploy.sh`.
+
 ### Going back to UIFlow
 
 NES Radar replaces UIFlow's launcher at power‑on. To get the launcher back,
@@ -295,6 +316,7 @@ Use USB‑C for long sessions.
 | `tools/build_airports.py`, `tools/deploy.sh` | airport packing and deployment |
 | `tools/tx_pattern.py`, `tools/rx_monitor.py` | bench helpers for the scope tests, run with `mpremote run` |
 | `tools/set_wifi.py` | saves Wi‑Fi into UIFlow's settings when M5Burner doesn't |
+| `tools/erase_apps.py` | erases UIFlow's user files through the bootloader when an app won't stop |
 | `tests/` | parity, session, and MicroPython golden‑vector tests |
 
 ## Validation
