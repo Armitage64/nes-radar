@@ -3,9 +3,9 @@
 
     python3 tools/erase_apps.py [serial-port] [--dry-run] [--yes]
 
-Use this when tools/deploy.sh fails with "could not enter raw repl": some
-running app is not giving up the REPL (a long blocking call, or Ctrl-C
-disabled), so mpremote cannot interrupt it.
+Use this when tools/deploy.sh says "Could not reach the Stick's REPL": some
+running app does not stop when interrupted (a long blocking call, or Ctrl-C
+disabled), or the Stick is not running UIFlow at all.
 
 This does not ask the running app for anything. esptool resets the chip into
 its ROM bootloader over USB, reads the partition table, and erases only the

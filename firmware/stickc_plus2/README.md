@@ -10,9 +10,10 @@ and battery support.
 
 > [!CAUTION]
 > This host path has **not** had real‑console acceptance. The hardware‑accepted
-> reference is still the macOS server with an FT232R 5 V cable. Everything here
-> has been checked offline only (see [Validation](#validation)). Connect a
-> vintage NES at your own risk.
+> reference is still the macOS server with an FT232R 5 V cable. The Stick side
+> (UIFlow, Wi‑Fi, screen, buttons, deploy tools) works on a real Plus2, but the
+> level shifter and the NES link have not been tested on hardware yet (see
+> [Validation](#validation)). Connect a vintage NES at your own risk.
 
 ## What's different from the computer server
 
@@ -212,7 +213,8 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
 1. **Check the firmware.** The Stick needs UIFlow 2.0.
    - If it shows the UIFlow launcher at power‑on, it already has it.
    - Otherwise, flash **UIFlow2.0 StickC Plus2** with M5Stack's
-     [M5Burner](https://docs.m5stack.com/en/uiflow2/m5burner/intro).
+     [M5Burner](https://docs.m5stack.com/en/uiflow2/m5burner/intro). The boot
+     option you pick there doesn't matter; `tools/deploy.sh` sets it.
    - Either way, set up Wi‑Fi in M5Burner's configure step (or UIFlow's
      launcher). NES Radar joins only that network. Wi‑Fi credentials are
      deliberately never read from `config.json`, so they don't sit in a plain
@@ -232,8 +234,10 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
      bench.
    - `invert`: leave it `true` for the NPN shifter. Set it to `false` for the
      TXU0202 or two‑buffer alternatives.
-3. **Deploy.** Connect the Stick by USB‑C, run `pip install mpremote`, then
-   `tools/deploy.sh`. The script:
+3. **Deploy.** Connect the Stick by USB‑C, run `pip install mpremote` (it also
+   brings pyserial, which `set_wifi.py` and `stick_repl.py` use), then
+   `tools/deploy.sh`. It works whether the Stick is running NES Radar, the
+   UIFlow launcher, or nothing. The script:
    - packs `airports.bin` from `server/src/data`;
    - saves UIFlow's own `/flash/main.py` as `/flash/main_uiflow.py`, the first
      time only;
@@ -243,9 +247,9 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
 
    Re‑run it after a server airport‑data refresh to update the Stick's table.
 
-   **"could not enter raw repl"?** Another app on the Stick is running and
-   won't give up the REPL, so `mpremote` can't interrupt it. Erase the Stick's
-   user files and deploy again:
+   **"Could not reach the Stick's REPL"?** Another app on the Stick is running
+   and won't stop when interrupted, or the Stick isn't running UIFlow at all.
+   Erase the Stick's user files and deploy again:
 
    ```
    pip install esptool
@@ -266,14 +270,17 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
 
 ### Going back to UIFlow
 
-NES Radar replaces UIFlow's launcher at power‑on. To get the launcher back,
-restore UIFlow's `main.py` and its boot option:
+NES Radar replaces UIFlow's launcher at power‑on. To get the launcher back:
 
 ```
-mpremote exec "import os, esp32; os.rename('/flash/main_uiflow.py', '/flash/main.py'); n = esp32.NVS('uiflow'); n.set_u8('boot_option', 1); n.commit()" reset
+tools/restore_uiflow.sh
 ```
 
-This leaves NES Radar's files in `/flash`, so `tools/deploy.sh` switches back.
+It restores UIFlow's `main.py` from the backup `deploy.sh` made. If there is
+no backup (after `erase_apps.py`, `/flash` had no `main.py` to save), it
+writes UIFlow's stock one‑line `main.py` instead. Then it sets UIFlow's boot
+option back to the launcher and restarts the Stick. NES Radar's files stay in
+`/flash`, so `tools/deploy.sh` switches back.
 
 ### Optional: verify adsb.fi's certificate
 
@@ -317,9 +324,13 @@ Use USB‑C for long sessions.
 | `tools/tx_pattern.py`, `tools/rx_monitor.py` | bench helpers for the scope tests, run with `mpremote run` |
 | `tools/set_wifi.py` | saves Wi‑Fi into UIFlow's settings when M5Burner doesn't |
 | `tools/erase_apps.py` | erases UIFlow's user files through the bootloader when an app won't stop |
+| `tools/restore_uiflow.sh` | returns the Stick to the UIFlow launcher at power‑on |
+| `tools/stick_repl.py` | runs code on the Stick without `mpremote`'s soft reset, which would start the UIFlow launcher; used by the scripts above |
 | `tests/` | parity, session, and MicroPython golden‑vector tests |
 
 ## Validation
+
+Done on a real StickC Plus2 with UIFlow 2.5.3: see the ticked item below.
 
 Done offline:
 
@@ -345,9 +356,10 @@ Not yet done, and needed before this is more than experimental:
 - [ ] The [bench tests](#bench-tests-dmm-and-scope) below, stages 1–6.
 - [ ] Real NTSC console run: KSBA and KLAX for 30+ minutes each, on battery and
       on USB, including Select/airport changes, with no `LINK ERROR`.
-- [ ] On UIFlow 2.5.3: `tools/deploy.sh` runs cleanly, the Stick boots
-      straight into NES Radar, the status screen fits and is legible, A
-      toggles the backlight, holding B powers off on battery, and
+- [x] On UIFlow 2.5.3: `tools/deploy.sh` runs cleanly (also from the UIFlow
+      launcher and after `erase_apps.py`), the Stick boots straight into NES
+      Radar and joins the saved Wi‑Fi, the status screen is legible, A toggles
+      the backlight, holding B powers off, and
       [Going back to UIFlow](#going-back-to-uiflow) restores the launcher.
 - [ ] Certificate verification with `ca.der`.
 

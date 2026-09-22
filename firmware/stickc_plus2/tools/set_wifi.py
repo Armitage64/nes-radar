@@ -14,49 +14,13 @@ or a command line. Needs pyserial, which mpremote already installs.
 """
 
 import getpass
-import glob
+import os
 import sys
-import time
 
 import serial
 
-BAUD = 115200
-
-
-def find_port():
-    ports = sorted(glob.glob("/dev/cu.usbserial-*") + glob.glob("/dev/ttyUSB*")
-                   + glob.glob("/dev/ttyACM*"))
-    if len(ports) != 1:
-        sys.exit("Found %d serial ports %s; pass the Stick's port as an argument."
-                 % (len(ports), ports))
-    return ports[0]
-
-
-def read_until(link, marker, timeout=10.0):
-    data = b""
-    end = time.time() + timeout
-    while time.time() < end:
-        data += link.read(256)
-        if marker in data:
-            return data
-    raise TimeoutError("no response from the Stick (got %r)" % data[-80:])
-
-
-def raw_exec(link, code):
-    """Run code in MicroPython's raw REPL; return (stdout, stderr)."""
-    link.write(b"\r\x03\x03")
-    time.sleep(0.3)
-    link.reset_input_buffer()
-    link.write(b"\r\x01")
-    read_until(link, b"raw REPL; CTRL-B to exit\r\n>")
-    link.write(code.encode("utf-8") + b"\x04")
-    # Reply: "OK", stdout, 0x04, stderr, 0x04, ">" -- possibly in one read.
-    reply = read_until(link, b"\x04>")
-    link.write(b"\x02")
-    if not reply.startswith(b"OK"):
-        raise RuntimeError("the Stick did not accept the code: %r" % reply[:80])
-    output, errors = reply[2:reply.rindex(b"\x04>")].split(b"\x04", 1)
-    return output.decode(errors="replace"), errors.decode(errors="replace")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from stick_repl import BAUD, find_port, raw_exec  # noqa: E402
 
 
 def main():

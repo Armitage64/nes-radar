@@ -24,12 +24,18 @@ python3 "$HERE/tools/build_airports.py" "$BUILD/airports.bin"
 
 if [ "$PORT" = auto ]; then
     set -- mpremote
+    REPL_PORT=""
 else
     set -- mpremote connect "$PORT"
+    REPL_PORT=$PORT
 fi
 
-if ! "$@" exec "
-import os
+# First step without a soft reset (tools/stick_repl.py): it works even from
+# the UIFlow launcher, which holds the REPL. Setting boot_option 0 here means
+# every mpremote soft reset below reruns boot.py without starting the
+# launcher, so the copies reach the REPL.
+if ! python3 "$HERE/tools/stick_repl.py" ${REPL_PORT:+--port "$REPL_PORT"} "
+import os, esp32
 try:
     os.stat('/flash/main_uiflow.py')
 except OSError:
@@ -42,6 +48,10 @@ try:
     os.mkdir('/flash/nesradar')
 except OSError:
     pass
+nvs = esp32.NVS('uiflow')
+nvs.set_u8('boot_option', 0)
+nvs.commit()
+print('UIFlow boot_option set to 0: the Stick will start NES Radar')
 "; then
     echo "" >&2
     echo "Could not reach the Stick's REPL. Either an app is running and will" >&2
@@ -61,12 +71,5 @@ if [ -f "$HERE/ca.der" ]; then
     "$@" cp "$HERE/ca.der" :/flash/ca.der
 fi
 "$@" cp "$HERE/main.py" :/flash/main.py
-"$@" exec "
-import esp32
-nvs = esp32.NVS('uiflow')
-nvs.set_u8('boot_option', 0)
-nvs.commit()
-print('UIFlow boot_option set to 0: the Stick now starts NES Radar')
-"
 "$@" reset
 echo "Deployed. The Stick restarts into NES Radar."
