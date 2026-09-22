@@ -21,7 +21,7 @@ import network
 from nesradar import clock
 from nesradar.constants import ADSB_FI_HOST, ADSB_FI_PATH, FETCH_TIMEOUT_S, USER_AGENT
 
-CA_PATH = "/ca.der"
+CA_PATH = "/flash/ca.der"
 
 _wlan = None
 

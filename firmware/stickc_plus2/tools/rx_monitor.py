@@ -26,7 +26,7 @@ REPORT_MS = 5000
 
 def invert_setting():
     try:
-        with open("/config.json") as handle:
+        with open("/flash/config.json") as handle:
             return json.load(handle).get("invert", True)
     except (OSError, ValueError):
         return True

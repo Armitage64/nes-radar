@@ -1,49 +1,40 @@
-"""M5StickC Plus2 pins and power (MicroPython only).
+"""M5StickC Plus2 hardware on UIFlow 2.0 firmware (MicroPython only).
 
-Pin map from https://docs.m5stack.com/en/core/M5StickC%20PLUS2:
-  HOLD G4 (must be driven high or the Stick powers off on battery)
-  Button A G37, B G39, C G35 (power); battery sense G38 (1:2 divider)
-  LCD ST7789V2: MOSI G15, SCLK G13, DC G14, RST G12, CS G5, backlight G27
-  Top header: GND, 5V OUT, G26, G36/G25, G0, BAT, 3V3, 5V IN.
+UIFlow's M5 module (M5Unified underneath) already knows this board: the
+display, buttons, battery gauge, and power latch. Its boot.py also drives the
+power-hold pin (G4) high before main.py runs. This module only adds the link
+UART, which UIFlow leaves alone.
 
-The link uses the header, where the protoboard hat plugs in:
+Top header: GND, 5V OUT, G26, G36/G25, G0, BAT, 3V3, 5V IN.
+
+The link uses the header, where the proto hat plugs in:
   G26 = TX. An ordinary input/output pin.
   G36 = RX. Input-only, which suits receiving. G36 shares its header pad with
         G25, so G25 must stay an input; nothing here configures it.
+  G0 is not used. It is a boot-mode strapping pin: held low at power-up
+  (for example by the NES resting OUT0 low), the ESP32 would start in
+  download mode instead of running NES Radar.
 Both go through a level shifter (see README). The default is a pair of NPN
 transistor stages, each of which inverts the signal, so the UART inverts TX
 and RX in hardware to cancel it. The non-inverting shifters (TXU0202, or the
 two single-gate buffers) need "invert": false in config.json.
-  G0 is not used. It is a boot-mode strapping pin: held low at power-up
-  (for example by the NES resting OUT0 low), the ESP32 would start
-  in download mode instead of running NES Radar.
 """
 
-from machine import ADC, Pin, UART
+from machine import UART
+
+import M5
 
 from nesradar.constants import BAUD
 
-HOLD_PIN = 4
-BUTTON_A_PIN = 37
-BUTTON_B_PIN = 39
-BATTERY_PIN = 38
 LINK_TX_PIN = 26
 LINK_RX_PIN = 36
 LINK_UART_ID = 1
-
-_hold = None
-
-
-def hold_power():
-    """Latch the power switch. Call first thing at boot."""
-    global _hold
-    _hold = Pin(HOLD_PIN, Pin.OUT, value=1)
+POWER_OFF_HOLD_MS = 2000
 
 
-def power_off():
-    """Release the latch. On battery this turns the Stick off; on USB it continues."""
-    if _hold is not None:
-        _hold.value(0)
+def init():
+    """Start M5Unified. UIFlow's own boot does this too; calling it again is safe."""
+    M5.begin()
 
 
 def open_link_uart(invert=True):
@@ -67,37 +58,18 @@ def open_link_uart(invert=True):
 
 
 class Buttons:
-    """Edge-detected, polled buttons (active low)."""
+    """Front button A and side button B, through M5Unified's debounced state."""
 
-    def __init__(self):
-        self.a = Pin(BUTTON_A_PIN, Pin.IN)
-        self.b = Pin(BUTTON_B_PIN, Pin.IN)
-        self._last_a = 1
-        self._last_b = 1
-
-    def pressed(self):
-        """Return 'A' and/or 'B' for each button newly pressed since the last call."""
-        events = []
-        a, b = self.a.value(), self.b.value()
-        if self._last_a and not a:
-            events.append("A")
-        if self._last_b and not b:
-            events.append("B")
-        self._last_a, self._last_b = a, b
-        return events
-
-    def b_held(self):
-        return not self.b.value()
+    def poll(self):
+        """Call often. Returns (A was pressed, B held long enough to power off)."""
+        M5.update()
+        return M5.BtnA.wasPressed(), M5.BtnB.pressedFor(POWER_OFF_HOLD_MS)
 
 
-class Battery:
-    def __init__(self):
-        self.adc = ADC(Pin(BATTERY_PIN))
-        self.adc.atten(ADC.ATTN_11DB)
+def battery_percent():
+    return M5.Power.getBatteryLevel()
 
-    def volts(self):
-        return self.adc.read_uv() * 2 / 1_000_000
 
-    def percent(self):
-        volts = self.volts()
-        return max(0, min(100, int((volts - 3.3) / (4.15 - 3.3) * 100)))
+def power_off():
+    """On battery this turns the Stick off; on USB power it stays on."""
+    M5.Power.powerOff()

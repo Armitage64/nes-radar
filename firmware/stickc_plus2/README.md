@@ -4,7 +4,9 @@
 [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) instead
 of a computer and FTDI cable. The Stick joins Wi‑Fi, polls adsb.fi, and speaks
 the [`SIGNALING.md`](../../SIGNALING.md) link from its own UART, powered by
-its internal battery or USB‑C.
+its internal battery or USB‑C. It runs on M5Stack's **UIFlow 2.0** firmware,
+which the Stick usually ships with, and uses UIFlow's built‑in display, button,
+and battery support.
 
 > [!CAUTION]
 > This host path has **not** had real‑console acceptance. The hardware‑accepted
@@ -16,10 +18,11 @@ its internal battery or USB‑C.
 
 | | Computer + FTDI | StickC Plus2 |
 |---|---|---|
-| Runtime | CPython, `server/src/` | MicroPython ≥ 1.24, `ESP32_GENERIC` **SPIRAM** build |
+| Runtime | CPython, `server/src/` | UIFlow 2.0 firmware (MicroPython 1.27 in UIFlow 2.5.3) |
 | Serial | FT232R over USB | ESP32 UART1, G26 TX / G36 RX (top header), 9600 8N1 |
 | Level shifting | built into the 5 V cable | **you add it**: two NPN transistors (below) |
 | Airport choice | NES controller (`--nes-icao`) | same, or a fixed `icao` in `config.json` |
+| Wi‑Fi | the computer's | the network saved in UIFlow, or `config.json` |
 | Airport data | refreshed from OurAirports every 30 days | packed from `server/src/data` at deploy time |
 | Status | terminal | the Stick's LCD |
 
@@ -85,7 +88,7 @@ differs between parts and makers.
 | 5V IN, 5V OUT, BAT | not connected |
 
 **How it works.** Each stage inverts, and the ESP32 UART inverts TX and RX in
-hardware to cancel it (`"invert": true`, the default in `config.json`).
+hardware to cancel it (`"invert": true`, the default).
 
 - **TX:** the UART idles with G26 low, so the transistor is off and the
   10 kΩ pull‑up holds D0 at the NES's own 5 V, which is idle (mark). A space
@@ -206,24 +209,43 @@ Sources: [TI TXU0202 datasheet](https://www.ti.com/lit/ds/symlink/txu0202.pdf),
 
 ## Setup
 
-1. **Flash MicroPython.**
-   - Download the latest `ESP32_GENERIC` **SPIRAM** firmware (v1.24 or newer) from
-     <https://micropython.org/download/ESP32_GENERIC/>.
-   - Flash it with `esptool.py --chip esp32 --port <port> erase_flash`, then
-     `esptool.py --chip esp32 --port <port> write_flash -z 0x1000 <firmware.bin>`.
-   - Confirm the PSRAM is in use: `mpremote exec "import gc; print(gc.mem_free())"`
-     should report well over 1,000,000.
-2. **Configure.** Copy `config.example.json` to `config.json` and set `ssid` and
-   `password`.
-   - Leave `icao` as `null` to pick airports on the NES.
-   - Set `icao` to a code (e.g. `"KSBA"`) to stream without a controller request.
-     That mode is useful on the bench with a logic analyzer.
-   - Leave `invert` as `true` for the NPN shifter. Set it to `false` for the
+1. **Check the firmware.** The Stick needs UIFlow 2.0.
+   - If it shows the UIFlow launcher at power‑on, it already has it.
+   - Otherwise, flash **UIFlow2.0 StickC Plus2** with M5Stack's
+     [M5Burner](https://docs.m5stack.com/en/uiflow2/m5burner/intro).
+   - Either way, set up Wi‑Fi in UIFlow (M5Burner's configure step, or the
+     launcher's setup). NES Radar joins the same network.
+2. **Configure (optional).** Everything has a working default, so you only need
+   a `config.json` to change something. To make one, copy `config.example.json`
+   to `config.json` next to it:
+   - `icao`: leave it `null` to pick airports on the NES. Set a code (e.g.
+     `"KSBA"`) to stream without a controller request, which is handy on the
+     bench.
+   - `invert`: leave it `true` for the NPN shifter. Set it to `false` for the
      TXU0202 or two‑buffer alternatives.
-3. **Deploy.** Run `pip install mpremote`, then `tools/deploy.sh`.
-   - The script packs `airports.bin` from `server/src/data`, copies everything
-     onto the Stick, and resets it.
-   - Re‑run it after a server airport‑data refresh to update the Stick's table.
+   - `ssid` and `password`: add these only to use a different Wi‑Fi network from
+     the one saved in UIFlow.
+3. **Deploy.** Connect the Stick by USB‑C, run `pip install mpremote`, then
+   `tools/deploy.sh`. The script:
+   - packs `airports.bin` from `server/src/data`;
+   - saves UIFlow's own `/flash/main.py` as `/flash/main_uiflow.py`, the first
+     time only;
+   - copies NES Radar into `/flash`;
+   - sets UIFlow to start NES Radar at power‑on instead of its launcher;
+   - restarts the Stick.
+
+   Re‑run it after a server airport‑data refresh to update the Stick's table.
+
+### Going back to UIFlow
+
+NES Radar replaces UIFlow's launcher at power‑on. To get the launcher back,
+restore UIFlow's `main.py` and its boot option:
+
+```
+mpremote exec "import os, esp32; os.rename('/flash/main_uiflow.py', '/flash/main.py'); n = esp32.NVS('uiflow'); n.set_u8('boot_option', 1); n.commit()" reset
+```
+
+This leaves NES Radar's files in `/flash`, so `tools/deploy.sh` switches back.
 
 ### Optional: verify adsb.fi's certificate
 
@@ -232,8 +254,8 @@ but adsb.fi is not authenticated; the data is public, read‑only aircraft
 positions.
 
 To require verification, save the **GTS Root R4** certificate in DER form (from
-<https://pki.goog/repository/>) as `ca.der` next to `config.json` and deploy
-again. This has not yet been exercised on hardware.
+<https://pki.goog/repository/>) as `ca.der` next to `config.example.json`
+and deploy again. This has not yet been exercised on hardware.
 
 ## Using it
 
@@ -241,7 +263,8 @@ The screen shows Wi‑Fi, state (`WAITING`, `STREAMING`, `PAUSED`, …), the air
 the aircraft count, the last scene, and link byte counters.
 
 - **A** toggles the backlight, which saves battery.
-- **Hold B for 2 s** to power off: TX is left idle and the power latch is released.
+- **Hold B (the side button) for 2 s** to power off, leaving TX at idle. On
+  USB power the Stick stays on; unplug it first.
 
 The ROM behaves the same way it does with the computer server. Rebooting the
 Stick counts as a server restart, so reload the ROM afterwards, as the main
@@ -261,7 +284,7 @@ Use USB‑C for long sessions.
 | `nesradar/link.py` | paced UART transmit, heartbeats, request waits |
 | `nesradar/app.py` | request → stream → pause lifecycle (port of `ConnectionLifecycle`/`stream_scope`) |
 | `nesradar/airports.py` | binary search over `airports.bin` |
-| `nesradar/net.py`, `board.py`, `st7789.py`, `ui.py`, `device.py` | Wi‑Fi/HTTPS, pins and power, LCD, status screen, wiring (device only) |
+| `nesradar/net.py`, `board.py`, `ui.py`, `device.py` | Wi‑Fi/HTTPS, link UART and UIFlow `M5` hardware, status screen, wiring (UIFlow only) |
 | `tools/build_airports.py`, `tools/deploy.sh` | airport packing and deployment |
 | `tools/tx_pattern.py`, `tools/rx_monitor.py` | bench helpers for the scope tests, run with `mpremote run` |
 | `tests/` | parity, session, and MicroPython golden‑vector tests |
@@ -279,15 +302,23 @@ Done offline:
     against the SIGNALING.md timing.
 - With `MICROPYTHON=/path/to/micropython` set, the same golden vectors and
   session transcript are checked on the MicroPython unix port. This passed on
-  v1.24.1 in both double and **single** precision; the ESP32 uses single.
-- Every module compiles with `mpy-cross -march=xtensawin`.
+  v1.27.0, the version inside UIFlow 2.5.3, in both double and **single**
+  precision; the ESP32 uses single.
+- Every module compiles with MicroPython 1.27's `mpy-cross -march=xtensawin`.
+- The UIFlow layer (`board.py`, `ui.py`, `device.py`) ran end to end on the
+  unix port against stand‑in `M5`, `esp32`, `machine`, and `network` modules
+  written from UIFlow's source. That checks the wiring, not the real `M5`
+  behaviour.
 
 Not yet done, and needed before this is more than experimental:
 
 - [ ] The [bench tests](#bench-tests-dmm-and-scope) below, stages 1–6.
 - [ ] Real NTSC console run: KSBA and KLAX for 30+ minutes each, on battery and
       on USB, including Select/airport changes, with no `LINK ERROR`.
-- [ ] ST7789 panel offsets and colors on a physical Plus2.
+- [ ] On UIFlow 2.5.3: `tools/deploy.sh` runs cleanly, the Stick boots
+      straight into NES Radar, the status screen fits and is legible, A
+      toggles the backlight, holding B powers off on battery, and
+      [Going back to UIFlow](#going-back-to-uiflow) restores the launcher.
 - [ ] Certificate verification with `ca.der`.
 
 ## Bench tests (DMM and scope)

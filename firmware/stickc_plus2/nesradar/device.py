@@ -1,8 +1,16 @@
-"""Wire the Stick's hardware to Session (MicroPython only)."""
+"""Wire the Stick's hardware to Session (UIFlow 2.0 firmware only).
+
+UIFlow keeps the user's files under /flash and the Wi-Fi network it was set
+up with in NVS ("uiflow": ssid0/pswd0). NES Radar joins that network unless
+/flash/config.json names a different one, so a Stick already set up in UIFlow
+needs no Wi-Fi configuration at all.
+"""
 
 import gc
 import json
 import sys
+
+import esp32
 
 from nesradar import VERSION, board, clock, net
 from nesradar.airports import AirportTable
@@ -11,18 +19,33 @@ from nesradar.constants import LEAD_IN_MS
 from nesradar.link import Link
 from nesradar.ui import StatusScreen
 
-CONFIG_PATH = "/config.json"
-AIRPORTS_PATH = "/airports.bin"
-POWER_OFF_HOLD_MS = 2000
+FS_ROOT = "/flash"
+CONFIG_PATH = FS_ROOT + "/config.json"
+AIRPORTS_PATH = FS_ROOT + "/airports.bin"
 BATTERY_EVERY_MS = 10000
 RETRY_DELAY_MS = 2000
 
 
+def uiflow_wifi():
+    """(ssid, password) saved by UIFlow's setup, or ("", "")."""
+    try:
+        nvs = esp32.NVS("uiflow")
+        return nvs.get_str("ssid0") or "", nvs.get_str("pswd0") or ""
+    except (OSError, AttributeError):
+        return "", ""
+
+
 def load_config():
-    with open(CONFIG_PATH) as handle:
-        config = json.load(handle)
+    try:
+        with open(CONFIG_PATH) as handle:
+            config = json.load(handle)
+    except OSError:
+        config = {}  # config.json is optional on UIFlow
     if not config.get("ssid"):
-        raise ValueError("config.json needs an ssid")
+        ssid, password = uiflow_wifi()
+        if not ssid:
+            raise ValueError("no Wi-Fi: set it up in UIFlow or put ssid in config.json")
+        config["ssid"], config["password"] = ssid, password
     # The same floors parse_args() enforces on the desktop.
     if config.get("byte_guard_ms", 5) < 1:
         raise ValueError("byte_guard_ms must be at least 1")
@@ -35,31 +58,25 @@ def load_config():
 
 class Device:
     def __init__(self):
-        board.hold_power()
+        board.init()
         self.screen = StatusScreen(VERSION)
         self.buttons = board.Buttons()
-        self.battery = board.Battery()
         self.uart = None
         self.link = None
-        self._b_down_at = None
+        self.config = {}
         self._battery_at = None
 
     # Called from every idle wait in Link: keep this short.
     def idle(self):
         now = clock.ticks_ms()
-        for button in self.buttons.pressed():
-            if button == "A":
-                self.screen.toggle_backlight()
-            elif button == "B":
-                self._b_down_at = now
-        if self._b_down_at is not None:
-            if not self.buttons.b_held():
-                self._b_down_at = None
-            elif clock.ticks_diff(now, self._b_down_at) >= POWER_OFF_HOLD_MS:
-                raise StopSession()
+        a_pressed, b_held = self.buttons.poll()
+        if a_pressed:
+            self.screen.toggle_backlight()
+        if b_held:
+            raise StopSession()
         if self._battery_at is None or clock.ticks_diff(now, self._battery_at) >= BATTERY_EVERY_MS:
             self._battery_at = now
-            self.screen.set(battery="%d%%" % self.battery.percent())
+            self.screen.set(battery="%d%%" % board.battery_percent())
         if self.link is not None:
             self.screen.set(link="tx %d B, rx %d req" % (self.link.bytes_sent,
                                                         self.link.requests_seen))
@@ -75,7 +92,7 @@ class Device:
             if not net.connect(self.config["ssid"], self.config.get("password", ""),
                                timeout_ms=4000):
                 raise OSError("Wi-Fi reconnect failed")
-            self.status(wifi=self.config["ssid"][:23])
+            self.status(wifi=self.config["ssid"])
         try:
             return net.fetch_json(latitude, longitude, dist_nm)
         finally:
@@ -88,12 +105,12 @@ class Device:
         except (OSError, ValueError) as error:
             self.status(state="ERROR CONFIG", error=str(error))
             return
-        self.status(wifi="joining " + self.config["ssid"][:15])
+        self.status(wifi="joining " + self.config["ssid"])
         if not net.connect(self.config["ssid"], self.config.get("password", ""),
                            on_wait=self.screen.refresh):
             self.status(wifi="FAILED", error="could not join Wi-Fi; will retry on fetch")
         else:
-            self.status(wifi=self.config["ssid"][:23])
+            self.status(wifi=self.config["ssid"])
 
         airports = AirportTable(AIRPORTS_PATH)
         self.uart = board.open_link_uart(invert=self.config.get("invert", True))
@@ -131,7 +148,7 @@ class Device:
             # Leave the UART running so TX stays at mark (D0 high at the NES);
             # deinit would float G26 and the shifter input.
             self.link.sleep_ms(LEAD_IN_MS)
-        self.screen.display.set_backlight(False)
+        self.screen.off()
         board.power_off()
 
 

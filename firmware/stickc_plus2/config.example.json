@@ -1,6 +1,4 @@
 {
-  "ssid": "your-network",
-  "password": "your-password",
   "icao": null,
   "invert": true,
   "byte_guard_ms": 5,
