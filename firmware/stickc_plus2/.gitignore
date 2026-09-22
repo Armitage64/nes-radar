@@ -1,0 +1,4 @@
+# Wi-Fi credentials and generated deploy files stay local.
+config.json
+ca.der
+build/
