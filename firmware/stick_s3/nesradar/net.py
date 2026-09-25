@@ -3,7 +3,7 @@
 The request is HTTP/1.0 so the reply is never chunked, and it asks for no
 compression, so the body can go straight into json.load() from the socket.
 A busy airport (KLAX, dist 10) was about 22 KB of JSON when this was written;
-with the Plus2's PSRAM that is comfortably inside the heap.
+with the StickS3's 8 MB PSRAM that is comfortably inside the heap.
 
 Certificate verification: MicroPython's ssl does not verify by default and has
 no system trust store. If /ca.der exists (see README), it is loaded and

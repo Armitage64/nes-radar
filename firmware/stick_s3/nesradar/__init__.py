@@ -1,4 +1,4 @@
-"""NES Radar host for the M5StickC Plus2 (MicroPython).
+"""NES Radar host for the M5StickS3 (MicroPython).
 
 A standalone port of server/src/nes_radar_server.py. The modules in this
 package run on MicroPython and on CPython; the CPython side exists so the

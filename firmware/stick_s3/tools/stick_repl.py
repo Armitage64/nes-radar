@@ -24,8 +24,9 @@ BAUD = 115200
 
 
 def find_port():
-    ports = sorted(glob.glob("/dev/cu.usbserial-*") + glob.glob("/dev/ttyUSB*")
-                   + glob.glob("/dev/ttyACM*"))
+    # The StickS3's native USB shows up as usbmodem (macOS) or ttyACM (Linux).
+    ports = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/cu.usbserial-*")
+                   + glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))
     if len(ports) != 1:
         sys.exit("Found %d serial ports %s; pass the Stick's port." % (len(ports), ports))
     return ports[0]

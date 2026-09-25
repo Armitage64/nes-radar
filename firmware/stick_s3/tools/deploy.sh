@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copy NES Radar onto an M5StickC Plus2 running UIFlow 2.0 firmware.
+# Copy NES Radar onto an M5StickS3 running UIFlow 2.0 firmware.
 #
 #   tools/deploy.sh [serial-port]
 #

@@ -1,6 +1,6 @@
 """Status screen on UIFlow's M5.Lcd. Redraws changed rows only, at most twice a second.
 
-The Plus2's panel is 135x240; rotation 1 makes it 240x135 landscape. Rows are
+The StickS3's panel is 135x240; rotation 1 makes it 240x135 landscape. Rows are
 repainted individually (background fill, then text) so a refresh never
 blanks the whole screen, and only from idle waits, never mid-packet.
 """

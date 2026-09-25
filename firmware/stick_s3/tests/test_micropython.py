@@ -2,7 +2,7 @@
 
 Set MICROPYTHON to a unix-port binary (see the README) to enable:
 
-    MICROPYTHON=/path/to/micropython python -m pytest firmware/stickc_plus2/tests
+    MICROPYTHON=/path/to/micropython python -m pytest firmware/stick_s3/tests
 """
 
 import json

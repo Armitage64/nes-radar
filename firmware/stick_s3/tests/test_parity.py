@@ -3,7 +3,7 @@
 Run with the server's requirements installed (pyserial, certifi), because the
 desktop modules are imported as the reference:
 
-    python -m pytest firmware/stickc_plus2/tests
+    python -m pytest firmware/stick_s3/tests
 """
 
 import json

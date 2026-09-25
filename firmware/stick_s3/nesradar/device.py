@@ -106,6 +106,7 @@ class Device:
     def run(self):
         self.screen.refresh(force=True)
         try:
+            board.check_board()
             self.config = load_config()
         except (OSError, ValueError) as error:
             self.status(state="ERROR CONFIG", error=str(error))
@@ -151,7 +152,7 @@ class Device:
             self.status(state="POWER OFF", error="")
         finally:
             # Leave the UART running so TX stays at mark (D0 high at the NES);
-            # deinit would float G26 and the shifter input.
+            # deinit would float G8 and the shifter input.
             self.link.sleep_ms(LEAD_IN_MS)
         self.screen.off()
         board.power_off()
