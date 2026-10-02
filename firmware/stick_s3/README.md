@@ -11,9 +11,9 @@ and battery support.
 > [!CAUTION]
 > This host path has **not** had real‑console acceptance. The hardware‑accepted
 > reference is still the macOS server with an FT232R 5 V cable. The StickS3
-> port has not run on hardware yet, and neither the level shifter nor the NES
-> link has been tested on any Stick (see [Validation](#validation)). Connect a
-> vintage NES at your own risk.
+> link has worked on a real NES and on a MiSTer SNAC adapter, but the bench
+> tests and the long console runs are still to do (see
+> [Validation](#validation)). Connect a vintage NES at your own risk.
 
 > [!NOTE]
 > This used to target the M5StickC Plus2, which is no longer sold. The two
@@ -84,7 +84,7 @@ log) are avoided on purpose. The even row is out of the proto hat's reach.
      ├──[1 kΩ]──► NES D0 (pin 4)               ├──────► Stick G1
      │                                         │
     C│                                        C│
- G8  ─[10 kΩ]─B  2N3904              NES OUT0 ─[10 kΩ]─B  2N3904
+ G8  ─[10 kΩ]─B  2N3904              NES OUT0─[100 kΩ]─B  2N3904
     E│                              (pin 3)   E│
     GND                                        GND
 
@@ -92,9 +92,9 @@ log) are avoided on purpose. The even row is out of the proto hat's reach.
  EXT_5V, 5V_IN, BAT, G0 ── not connected
 ```
 
-**Parts:** two 2N3904 (TO‑92), four 10 kΩ, and one 1 kΩ resistor. Any small
-NPN works (2N2222A, BC547, PN2222); check the E‑B‑C lead order, which
-differs between parts and makers.
+**Parts:** two 2N3904 (TO‑92), three 10 kΩ, one 100 kΩ, and one 1 kΩ
+resistor. Any small NPN works (2N2222A, BC547, PN2222); check the E‑B‑C lead
+order, which differs between parts and makers.
 
 | From | Through | To |
 |---|---|---|
@@ -102,7 +102,7 @@ differs between parts and makers.
 | TX 2N3904 emitter | – | GND |
 | TX 2N3904 collector | 10 kΩ | NES pin 5 (+5 V) |
 | TX 2N3904 collector | 1 kΩ | NES pin 4 (D0) |
-| NES pin 3 (OUT0) | 10 kΩ | RX 2N3904 base |
+| NES pin 3 (OUT0) | 100 kΩ | RX 2N3904 base |
 | RX 2N3904 emitter | – | GND |
 | RX 2N3904 collector | 10 kΩ | Stick 3V3_L2 |
 | RX 2N3904 collector | – | Stick G1 |
@@ -117,9 +117,17 @@ hardware to cancel it (`"invert": true`, the default).
   about 0.7 V on its base, so 3.3 V drives it hard, and both levels sit far
   inside the NES input's limits.
 - **RX:** OUT0 high turns the transistor on and pulls G1 low; the UART's RX
-  inversion restores it. It works whenever OUT0 reaches about 1 V, so how high
-  the NES CPU's unbuffered OUT0 really goes no longer matters. It draws about
-  0.2–0.4 mA from OUT0.
+  inversion restores it. It works whenever OUT0 reaches about 1.5 V, so how
+  high the NES CPU's unbuffered OUT0 really goes no longer matters. It draws
+  about 30–45 µA from OUT0.
+- **Why the RX base resistor is 100 kΩ:** OUT0 is the strobe shared by both
+  controller ports, so the RX stage must load it lightly. A MiSTer SNAC
+  adapter pulls its lines high through only 10 kΩ (BSS138 level shifters).
+  With a 10 kΩ base resistor that formed a divider, and the strobe stopped at
+  about 2.85 V, below the 3.5 V that a controller's CD4021 needs. Both
+  controllers stopped responding. At 100 kΩ the strobe reaches about 4.6 V.
+  The transistor still saturates: it sinks only 0.33 mA, and about 8 µA of
+  base current is enough even at a 2N3904's minimum gain.
 - **Idle and power states:**
   - While the Stick is off or booting, G8 floats, the TX transistor stays
     off, and D0 rests high, the correct idle level.
@@ -131,9 +139,12 @@ hardware to cancel it (`"invert": true`, the default).
     10 kΩ) are about a tenth of what the tested FTDI cable pushes into an
     unpowered NES through its 1 kΩ.
 - **Speed:** a pull‑up makes the rising edge take about 0.3 µs, roughly 1/300
-  of a 9600‑baud bit. The ROM samples mid‑bit.
+  of a 9600‑baud bit. The ROM samples mid‑bit. The 100 kΩ base resistor
+  slows the RX transistor's edges to a few µs (estimated, not measured). The
+  slowest is turn‑off, when OUT0 falls. At 9600 baud that is a few percent of
+  a bit; check it on a scope before running this stage at higher rates.
 - **Why the 1 kΩ stays:** it is the same fault‑current limiter the FTDI
-  cable uses on D0. On the RX side the 10 kΩ base resistor does that job.
+  cable uses on D0. On the RX side the 100 kΩ base resistor does that job.
 
 **Fit on the 5 × 8 proto hat:**
 - Each TO‑92 takes 3 holes in a row. After soldering, bend it over flat so it
@@ -388,6 +399,14 @@ Done offline:
   not the real `M5` behaviour. `tests/test_board.py` checks the StickS3 pins
   and the board guard the same way on CPython.
 
+Done on hardware, with the NPN shifter and its 100 kΩ RX base resistor:
+
+- The link works on a real NES.
+- The link works on the MiSTer NES core through a 2‑player NES SNAC adapter,
+  with the Stick on port 2, and controller 1 still responds. With the
+  original 10 kΩ RX base resistor, both controllers stopped responding. The
+  NPN shifter's "How it works" explains why.
+
 Not yet done, and needed before this is more than experimental:
 
 - [ ] The [bench tests](#bench-tests-dmm-and-scope) below, stages 1–6.
@@ -437,7 +456,7 @@ With everything unpowered and the NES cable plugged into port 2:
 | G8 and TX transistor base | 10 kΩ |
 | TX collector and NES pin 4 (D0) | 1 kΩ |
 | TX collector and NES pin 5 (+5 V) | 10 kΩ |
-| NES pin 3 (OUT0) and RX transistor base | 10 kΩ |
+| NES pin 3 (OUT0) and RX transistor base | 100 kΩ |
 | RX collector and G1 | 0 Ω |
 | RX collector and Stick 3V3_L2 | 10 kΩ |
 | Stick GND and NES pin 1 | 0 Ω |
