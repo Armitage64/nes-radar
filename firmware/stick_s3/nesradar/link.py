@@ -57,6 +57,14 @@ class Link:
         self.bytes_sent = 0
         self.requests_seen = 0
 
+    def reset(self):
+        """Forget received bytes and decoder state, as a freshly opened link would."""
+        waiting = self.uart.any()
+        if waiting:
+            self.uart.read(waiting)
+        self.decoder = ReverseDecoder()
+        self.events = []
+
     # -- transmit ---------------------------------------------------------
 
     def _send(self, data):

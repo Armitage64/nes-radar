@@ -15,7 +15,7 @@ import esp32
 
 from nesradar import VERSION, board, clock, net
 from nesradar.airports import AirportTable
-from nesradar.app import Session, StopSession
+from nesradar.app import ResetSession, Session, StopSession
 from nesradar.constants import LEAD_IN_MS
 from nesradar.link import Link
 from nesradar.ui import StatusScreen
@@ -73,11 +73,13 @@ class Device:
     # Called from every idle wait in Link: keep this short.
     def idle(self):
         now = clock.ticks_ms()
-        a_pressed, b_held = self.buttons.poll()
-        if a_pressed:
+        a_pressed, b_clicked, b_held = self.buttons.poll()
+        if b_clicked:
             self.screen.toggle_backlight()
         if b_held:
             raise StopSession()
+        if a_pressed:
+            raise ResetSession()
         if self._battery_at is None or clock.ticks_diff(now, self._battery_at) >= BATTERY_EVERY_MS:
             self._battery_at = now
             self.screen.set(battery="%d%%" % board.battery_percent())
@@ -103,6 +105,29 @@ class Device:
         finally:
             gc.collect()
 
+    def serve(self, airports):
+        """Serve one Session until power-off or reset, riding out errors."""
+        fixed_icao = self.config.get("icao") or None
+        session = Session(
+            self.link,
+            airports.resolve,
+            self.fetch_json,
+            self.status,
+            sequence=self.config.get("sequence", 0),
+            fixed_icao=fixed_icao.upper() if fixed_icao else None,
+        )
+        while True:
+            try:
+                session.serve()
+                return
+            except (StopSession, ResetSession):
+                raise
+            except Exception as error:  # keep serving; a reboot would need a ROM reload
+                sys.print_exception(error)
+                self.status(state="ERROR", error="%s: %s" % (type(error).__name__, error))
+                self.link.sleep_ms(RETRY_DELAY_MS)
+                session.fixed_icao = None
+
     def run(self):
         self.screen.refresh(force=True)
         try:
@@ -127,27 +152,18 @@ class Device:
             idle=self.idle,
         )
         clock.sleep_ms(LEAD_IN_MS)
-        fixed_icao = self.config.get("icao") or None
-        session = Session(
-            self.link,
-            airports.resolve,
-            self.fetch_json,
-            self.status,
-            sequence=self.config.get("sequence", 0),
-            fixed_icao=fixed_icao.upper() if fixed_icao else None,
-        )
         try:
             while True:
                 try:
-                    session.serve()
+                    self.serve(airports)
                     return
-                except StopSession:
-                    raise
-                except Exception as error:  # keep serving; a reboot would need a ROM reload
-                    sys.print_exception(error)
-                    self.status(state="ERROR", error="%s: %s" % (type(error).__name__, error))
-                    self.link.sleep_ms(RETRY_DELAY_MS)
-                    session.fixed_icao = None
+                except ResetSession:
+                    # Button A: start over as if the Stick had rebooted, but
+                    # keep Wi-Fi and the UART (TX stays at mark meanwhile).
+                    self.status(state="RESET", airport="----", traffic="", scene="",
+                                error="")
+                    self.link.reset()
+                    self.link.sleep_ms(LEAD_IN_MS)
         except StopSession:
             self.status(state="POWER OFF", error="")
         finally:

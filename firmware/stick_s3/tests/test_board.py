@@ -22,10 +22,28 @@ class FakeUART:
         self.settings = settings
 
 
+class FakeButton:
+    def __init__(self):
+        self.pressed = self.clicked = False
+        self.held_ms = 0
+
+    def wasPressed(self):
+        return self.pressed
+
+    def wasClicked(self):
+        return self.clicked
+
+    def pressedFor(self, ms):
+        return self.held_ms >= ms
+
+
 def load_board(board_id):
     fake_m5 = types.ModuleType("M5")
     fake_m5.BOARD = types.SimpleNamespace(M5StickS3=STICK_S3, M5StickCPlus2=STICKC_PLUS2)
     fake_m5.getBoard = lambda: board_id
+    fake_m5.update = lambda: None
+    fake_m5.BtnA = FakeButton()
+    fake_m5.BtnB = FakeButton()
     fake_machine = types.ModuleType("machine")
     fake_machine.UART = FakeUART
     sys.modules["M5"] = fake_m5
@@ -57,6 +75,20 @@ class BoardTest(unittest.TestCase):
             board.check_board()
         with self.assertRaises(ValueError):
             board.open_link_uart()
+
+    def test_buttons_front_resets_side_clicks_and_holds(self):
+        board = load_board(STICK_S3)
+        buttons = board.Buttons()
+        m5 = sys.modules["M5"]
+        self.assertEqual(buttons.poll(), (False, False, False))
+        m5.BtnA.pressed = True
+        self.assertEqual(buttons.poll(), (True, False, False))
+        m5.BtnA.pressed = False
+        m5.BtnB.clicked = True
+        self.assertEqual(buttons.poll(), (False, True, False))
+        m5.BtnB.clicked = False
+        m5.BtnB.held_ms = board.POWER_OFF_HOLD_MS
+        self.assertEqual(buttons.poll(), (False, False, True))
 
 
 if __name__ == "__main__":

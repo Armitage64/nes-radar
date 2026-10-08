@@ -177,6 +177,38 @@ class SessionTests(unittest.TestCase):
         scene = [desktop.decode_scene(data) for _at, kind, data, _t in packets if kind == "scene"][0]
         self.assertEqual(scene.flags, desktop.SCENE_STALE | desktop.SCENE_UPSTREAM_DOWN)
 
+    def test_reset_drops_the_stream_and_serves_a_new_request(self):
+        # What Device does for button A: the idle hook raises ResetSession,
+        # the link forgets half-received bytes, and a fresh Session starts.
+        script = [
+            (0, request_bytes("KSBA")),
+            (12000, request_bytes("KLAX")[:3]),  # cut off by the reset
+            (16000, request_bytes("KLAX")),
+        ]
+        nes = ScriptedNes(self.virtual, script)
+        pressed = []
+
+        def idle():
+            if not pressed and self.virtual.now >= 13000:
+                pressed.append(self.virtual.now)
+                raise app.ResetSession()
+
+        link = Link(nes, idle=idle)
+        with self.assertRaises(app.ResetSession):
+            app.Session(link, self.resolve, self.fetch).serve()
+        link.reset()
+        self.assertEqual((link.events, nes.any()), ([], 0))
+        app.Session(link, self.resolve, self.fetch, max_frames=1).serve()
+
+        packets = split_packets(nes.tx)
+        locations = [(at, desktop.decode_location_result(data))
+                     for at, kind, data, _t in packets if kind == "location"]
+        self.assertEqual([(r.code, r.valid) for _at, r in locations],
+                         [("KSBA", True), ("KLAX", True)])
+        self.assertGreater(locations[1][0], 16000)
+        last = [desktop.decode_scene(data) for _at, kind, data, _t in packets if kind == "scene"][-1]
+        self.assertEqual(last.sequence, 0)  # a new Session starts its sequence over
+
 
 if __name__ == "__main__":
     unittest.main()

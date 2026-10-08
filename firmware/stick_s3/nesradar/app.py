@@ -42,6 +42,10 @@ class StopSession(Exception):
     """Raised by a status hook to end serve() (power-off, tests)."""
 
 
+class ResetSession(Exception):
+    """Raised by a status hook to drop serve() and start a new Session."""
+
+
 class Session:
     def __init__(self, link, resolve_airport, fetch_json, status=None, *,
                  sequence=0, fixed_icao=None, max_frames=0,

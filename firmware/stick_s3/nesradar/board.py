@@ -70,9 +70,14 @@ class Buttons:
     """Front button A and side button B, through M5Unified's debounced state."""
 
     def poll(self):
-        """Call often. Returns (A was pressed, B held long enough to power off)."""
+        """Call often. Returns (A was pressed, B was clicked, B held long enough to power off).
+
+        A click is a release before M5Unified's hold threshold, so the press
+        that starts a power-off hold never also toggles the backlight.
+        """
         M5.update()
-        return M5.BtnA.wasPressed(), M5.BtnB.pressedFor(POWER_OFF_HOLD_MS)
+        return (M5.BtnA.wasPressed(), M5.BtnB.wasClicked(),
+                M5.BtnB.pressedFor(POWER_OFF_HOLD_MS))
 
 
 def battery_percent():

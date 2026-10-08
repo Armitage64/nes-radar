@@ -337,7 +337,11 @@ and deploy again. This has not yet been exercised on hardware.
 The screen shows Wi‑Fi, state (`WAITING`, `STREAMING`, `PAUSED`, …), the airport,
 the aircraft count, the last scene, and link byte counters.
 
-- **A** toggles the backlight, which saves battery.
+- **A** (front) resets the server: it drops the current stream and waits for
+  a new airport request, as after a reboot, but keeps Wi‑Fi. Press it after
+  resetting the NES or when changing airports. A reset is noticed between
+  packets, so during an adsb.fi fetch it can take a second or two.
+- **B** (side) toggles the backlight, which saves battery.
 - **Hold B for 2 s** to power off, leaving TX at idle. On USB power the Stick
   stays on; unplug it first.
 - **Don't hold A while powering on.** UIFlow treats that as a request for its
@@ -417,8 +421,8 @@ Not yet done, and needed before this is more than experimental:
       gauge works.
 - [ ] On the StickS3's UIFlow 2.0: `tools/deploy.sh` runs cleanly (also from the UIFlow
       launcher and after `erase_apps.py`), the Stick boots straight into NES
-      Radar and joins the saved Wi‑Fi, the status screen is legible, A toggles
-      the backlight, holding B powers off, and
+      Radar and joins the saved Wi‑Fi, the status screen is legible, A resets
+      the server, B toggles the backlight, holding B powers off, and
       [Going back to UIFlow](#going-back-to-uiflow) restores the launcher.
 - [ ] Certificate verification with `ca.der`.
 
