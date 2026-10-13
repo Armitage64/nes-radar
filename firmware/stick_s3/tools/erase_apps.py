@@ -36,7 +36,8 @@ USER_PARTITION = b"vfs"
 
 
 def find_port():
-    # The StickS3's native USB shows up as usbmodem (macOS) or ttyACM (Linux).
+    # The StickS3's native USB shows up as usbmodem (macOS) or ttyACM (Linux);
+    # the Plus2's USB-serial chip as usbserial or ttyUSB.
     ports = sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/cu.usbserial-*")
                    + glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))
     if len(ports) != 1:

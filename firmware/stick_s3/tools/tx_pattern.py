@@ -5,8 +5,8 @@
 Sends 0x55 every 20 ms until Ctrl-C. At 9600 8N1, LSB first, 0x55 is a clean
 square wave on the wire: ten 104 us bits alternating L H L H L H L H L H
 (start bit, eight data bits, stop bit), then idle high. With the NPN shifter
-and "invert": true, the NES side (D0) must show exactly that, and G8 its
-inverse.
+and "invert": true, the NES side (D0) must show exactly that, and the TX pin
+(G8 on a StickS3, G0 on a StickC Plus2) its inverse.
 
 0x55 is not a packet marker, so a ROM listening for packets ignores it. Run
 it with the NES on and the ROM in the airport editor; with the NES off, the
@@ -37,7 +37,8 @@ def invert_setting():
 def main():
     invert = invert_setting()
     uart = board.open_link_uart(invert=invert)
-    print("sending 0x55 every %d ms on G8, invert=%s; Ctrl-C to stop" % (PERIOD_MS, invert))
+    print("sending 0x55 every %d ms on G%d, invert=%s; Ctrl-C to stop"
+          % (PERIOD_MS, board.link_pins()[0], invert))
     try:
         while True:
             uart.write(PATTERN)

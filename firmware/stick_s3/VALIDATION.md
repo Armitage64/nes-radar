@@ -1,13 +1,14 @@
-# NES Radar on an M5StickS3: validation
+# NES Radar on an M5StickS3 or M5StickC Plus2: validation
 
-What has and hasn't been checked on the StickS3 host described in the
+What has and hasn't been checked on the Stick host described in the
 [README](README.md), and the bench procedure for checking the level shifter.
 
 ## Status
 
 The deploy and UIFlow checks listed below first passed on a StickC Plus2 with
 UIFlow 2.5.3 (tag `stickc-plus2-final`), and have since been repeated on a
-StickS3.
+StickS3. The Plus2 ran them with TX on G26; it now sends on G0, the same hat
+slot as the StickS3's TX, and has been checked there too (below).
 
 Done offline:
 
@@ -26,8 +27,8 @@ Done offline:
 - The UIFlow layer (`board.py`, `ui.py`, `device.py`) ran end to end on the
   unix port against stand‑in `M5`, `esp32`, `machine`, and `network` modules
   written from UIFlow's source (on the Plus2 version). That checks the wiring,
-  not the real `M5` behaviour. `tests/test_board.py` checks the StickS3 pins
-  and the board guard the same way on CPython.
+  not the real `M5` behaviour. `tests/test_board.py` checks each board's
+  link pins and the board guard the same way on CPython.
 
 Done on hardware, with the NPN shifter and its 100 kΩ RX base resistor:
 
@@ -48,6 +49,9 @@ Done on hardware, with the NPN shifter and its 100 kΩ RX base resistor:
   the server, B toggles the backlight, holding B powers off, and
   [Going back to UIFlow](README.md#going-back-to-uiflow) restores the
   launcher.
+- On a StickC Plus2 on its new pins (G0 TX, G36 RX): the link works on a real
+  NES and on the MiSTer NES core, with the shifter on a breadboard rewired to
+  the hat's slots and with the nesp32 hat PCB.
 
 Not yet done, and needed before this is more than experimental:
 
@@ -56,6 +60,11 @@ Not yet done, and needed before this is more than experimental:
 - [ ] Certificate verification with `ca.der`.
 
 ## Bench tests (DMM and scope)
+
+The pins below are the StickS3's. On a StickC Plus2 read G8 as G0, G1 as
+G36, 3V3_L2 as 3V3 and EXT_5V as 5V OUT; slot 3 is G26 there, still left
+open, and G0 is the TX pin, so the checks that nothing reaches G0 don't
+apply. The Plus2 must still boot into NES Radar with the hat on.
 
 These check the NPN shifter with a multimeter and a two‑channel scope; no logic
 analyzer is needed. The two helper scripts run on the Stick through `mpremote`

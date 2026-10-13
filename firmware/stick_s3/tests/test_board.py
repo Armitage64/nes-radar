@@ -1,4 +1,4 @@
-"""Check board.py's pin choice and board guard with fake M5 and machine modules.
+"""Check each board's link pins and the board guard with fake M5 and machine modules.
 
 board.py imports UIFlow's M5 and MicroPython's machine, which CPython lacks,
 so this installs stand-ins before importing it.
@@ -11,6 +11,7 @@ import unittest
 
 STICK_S3 = 26
 STICKC_PLUS2 = 5
+OTHER_BOARD = 99
 
 
 class FakeUART:
@@ -69,10 +70,18 @@ class BoardTest(unittest.TestCase):
         board = load_board(STICK_S3)
         self.assertEqual(board.open_link_uart(invert=False).settings["invert"], 0)
 
-    def test_other_boards_are_refused(self):
+    def test_plus2_link_is_on_the_same_hat_slots(self):
+        # Slot 5 is G0 and slot 4 is G36 on a Plus2; G26 (slot 3) stays open.
         board = load_board(STICKC_PLUS2)
-        with self.assertRaisesRegex(ValueError, "M5StickS3"):
-            board.check_board()
+        uart = board.open_link_uart()
+        self.assertEqual(uart.uart_id, 1)
+        self.assertEqual((uart.settings["tx"], uart.settings["rx"]), (0, 36))
+        self.assertEqual(uart.settings["invert"], FakeUART.INV_TX | FakeUART.INV_RX)
+
+    def test_other_boards_are_refused(self):
+        board = load_board(OTHER_BOARD)
+        with self.assertRaisesRegex(ValueError, "M5StickS3 or an M5StickC Plus2"):
+            board.link_pins()
         with self.assertRaises(ValueError):
             board.open_link_uart()
 

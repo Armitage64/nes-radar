@@ -36,7 +36,8 @@ def main():
     invert = invert_setting()
     uart = board.open_link_uart(invert=invert)
     decoder = ReverseDecoder()
-    print("listening on G1, invert=%s; press Start on the NES; Ctrl-C to stop" % invert)
+    print("listening on G%d, invert=%s; press Start on the NES; Ctrl-C to stop"
+          % (board.link_pins()[1], invert))
     quiet_bytes = 0
     report_at = time.ticks_add(time.ticks_ms(), REPORT_MS)
     try:

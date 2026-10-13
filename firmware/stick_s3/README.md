@@ -1,8 +1,11 @@
-# NES Radar on an M5StickS3
+# NES Radar on an M5StickS3 or M5StickC Plus2
 
 **Experimental.** This runs the NES Radar server on an
 [M5StickS3](https://docs.m5stack.com/en/core/StickS3) instead
-of a computer and FTDI cable. The Stick joins Wi‑Fi, polls adsb.fi, and speaks
+of a computer and FTDI cable. The
+[M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) is fully
+supported too, with the same firmware and the same hat, though M5Stack no
+longer sells it. The Stick joins Wi‑Fi, polls adsb.fi, and speaks
 the [`SIGNALING.md`](../../SIGNALING.md) link from its own UART, powered by
 its internal battery or USB‑C. It runs on M5Stack's **UIFlow 2.0** firmware,
 which the Stick usually ships with, and uses UIFlow's built‑in display, button,
@@ -10,23 +13,26 @@ and battery support.
 
 > [!CAUTION]
 > This host path has **not** had real‑console acceptance. The hardware‑accepted
-> reference is still the macOS server with an FT232R 5 V cable. The StickS3
+> reference is still the macOS server with an FT232R 5 V cable. The StickS3's
 > link has worked on a real NES and on a MiSTer SNAC adapter and has passed
 > its bench tests, but the long console runs are still to do (see
 > [VALIDATION.md](VALIDATION.md)). Connect a vintage NES at your own risk.
 
 > [!NOTE]
-> This used to target the M5StickC Plus2, which is no longer sold. The two
-> Sticks need differently wired hats (see [Converting a Plus2 hat](https://github.com/Armitage64/nesp32/blob/main/docs/WIRING.md#converting-a-plus2-hat)),
-> so the Plus2 is no longer supported. Its last version is the git tag
-> `stickc-plus2-final`, in `firmware/stickc_plus2/`.
+> One hat serves both Sticks, and the firmware picks its link pins by board:
+> G8 TX / G1 RX on a StickS3, G0 TX / G36 RX on a StickC Plus2. A Plus2 used
+> to send on G26 (slot 3) and needed a hat of its own; a hat built that way
+> has to be converted first (see
+> [Converting a Plus2 hat](https://github.com/Armitage64/nesp32/blob/main/docs/WIRING.md#converting-a-plus2-hat)).
+> The last version with the old pins is the git tag `stickc-plus2-final`, in
+> `firmware/stickc_plus2/`.
 
 ## What's different from the computer server
 
-| | Computer + FTDI | StickS3 |
+| | Computer + FTDI | Stick |
 |---|---|---|
-| Runtime | CPython, `server/src/` | UIFlow 2.0 firmware for the StickS3 (MicroPython) |
-| Serial | FT232R over USB | ESP32‑S3 UART1, G8 TX / G1 RX (Hat2‑Bus), 9600 8N1 |
+| Runtime | CPython, `server/src/` | UIFlow 2.0 firmware for the Stick (MicroPython) |
+| Serial | FT232R over USB | UART1 on the hat header, 9600 8N1: G8 TX / G1 RX on a StickS3, G0 TX / G36 RX on a Plus2 |
 | Level shifting | built into the 5 V cable | **you add it**: two NPN transistors (below) |
 | Airport choice | NES controller (`--nes-icao`) | same, or a fixed `icao` in `config.json` |
 | Wi‑Fi | the computer's | the network saved in M5Burner / UIFlow |
@@ -41,7 +47,7 @@ the next one. That way a slow TLS handshake can never delay a packet.
 
 ## Wiring
 
-The hat, its pins on the StickS3, the level shifter and the reasons for it
+The hat, its pins on each Stick, the level shifter and the reasons for it
 are in [nesp32's wiring document](https://github.com/Armitage64/nesp32/blob/main/docs/WIRING.md), which this section
 became: the same hat serves every ROM that uses a nesp32.
 
@@ -49,7 +55,7 @@ became: the same hat serves every ROM that uses a nesp32.
 
 1. **Check the firmware.** The Stick needs UIFlow 2.0.
    - If it shows the UIFlow launcher at power‑on, it already has it.
-   - Otherwise, flash **UIFlow2.0 StickS3** with M5Stack's
+   - Otherwise, flash **UIFlow2.0 StickS3** or **UIFlow2.0 StickC Plus2**, to match the board, with M5Stack's
      [M5Burner](https://docs.m5stack.com/en/uiflow2/m5burner/intro). The boot
      option you pick there doesn't matter; `tools/deploy.sh` sets it.
    - Either way, set up Wi‑Fi in M5Burner's configure step (or UIFlow's
@@ -74,7 +80,9 @@ became: the same hat serves every ROM that uses a nesp32.
 3. **Deploy.** Connect the Stick by USB‑C, run `pip install mpremote` (it also
    brings pyserial, which `set_wifi.py` and `stick_repl.py` use), then
    `tools/deploy.sh`. The StickS3 has native USB, so its port is
-   `/dev/cu.usbmodem…` on macOS or `/dev/ttyACM…` on Linux; the tools find a
+   `/dev/cu.usbmodem…` on macOS or `/dev/ttyACM…` on Linux; the Plus2 has a
+   USB‑serial chip, so its port is `/dev/cu.usbserial‑…` or `/dev/ttyUSB…`.
+   The tools find a
    single Stick on their own. It works whether the Stick is running NES Radar, the
    UIFlow launcher, or nothing. The script:
    - packs `airports.bin` from `server/src/data`;
@@ -145,7 +153,7 @@ the aircraft count, the last scene, and link byte counters.
   stays on; unplug it first.
 - **Don't hold A while powering on.** UIFlow treats that as a request for its
   startup menu and keeps showing the menu until `tools/deploy.sh` runs again.
-- **The side power button:** press once to power on or reset, double‑press to
+- **The StickS3's side power button:** press once to power on or reset, double‑press to
   power off, and hold it to enter download mode. Download mode is also what
   you'll see if something on the hat pulls G0 low at power‑up.
 
@@ -154,7 +162,8 @@ Stick counts as a server restart, so reload the ROM afterwards, as the main
 README describes.
 
 Battery life with Wi‑Fi active hasn't been measured on the StickS3; expect
-around 2 hours from its 250 mAh cell. Use USB‑C for long sessions.
+around 2 hours from its 250 mAh cell. The Plus2's 200 mAh cell gives roughly
+1.5–2 hours. Use USB‑C for long sessions.
 
 ## Layout
 
