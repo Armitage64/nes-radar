@@ -1,6 +1,6 @@
 """Run mp_check.py under a real MicroPython interpreter, when one is available.
 
-Set MICROPYTHON to a unix-port binary (see the README) to enable:
+Set MICROPYTHON to a unix-port binary (see VALIDATION.md) to enable:
 
     MICROPYTHON=/path/to/micropython python -m pytest firmware/stick_s3/tests
 """
