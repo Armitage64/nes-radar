@@ -20,12 +20,7 @@ and battery support.
 
 > [!NOTE]
 > One hat serves both Sticks, and the firmware picks its link pins by board:
-> G8 TX / G1 RX on a StickS3, G0 TX / G36 RX on a StickC Plus2. A Plus2 used
-> to send on G26 (slot 3) and needed a hat of its own; a hat built that way
-> has to be converted first (see
-> [Converting a Plus2 hat](https://github.com/Armitage64/nesp32/blob/main/docs/WIRING.md#converting-a-plus2-hat)).
-> The last version with the old pins is the git tag `stickc-plus2-final`, in
-> `firmware/stickc_plus2/`.
+> G8 TX / G1 RX on a StickS3, G0 TX / G36 RX on a StickC Plus2.
 
 ## What's different from the computer server
 

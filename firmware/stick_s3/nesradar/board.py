@@ -24,8 +24,6 @@ the hat leaves open: either stage there (a transistor's base resistor, or the
 RX collector while the NES idles OUT0 high) would start the board in download
 mode instead of NES Radar. On a StickC Plus2 it is slot 5, the hat's TX, and
 the board starts all the same with the TX stage's 10 k base resistor on it.
-A hat built for the Plus2's old pins, with TX on slot 3 (G26), has to be
-converted first (docs/WIRING.md).
 
 Both go through a level shifter (see README). The default is a pair of NPN
 transistor stages, each of which inverts the signal, so the UART inverts TX
