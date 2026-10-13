@@ -209,20 +209,22 @@ Done on hardware, with the NPN shifter and its 100 kΩ RX base resistor:
   with the Stick on port 2, and controller 1 still responds. With the
   original 10 kΩ RX base resistor, both controllers stopped responding. The
   NPN shifter's "How it works" explains why.
+- The [bench tests](#bench-tests-dmm-and-scope) below, stages 1–6, pass on
+  the built PCB: the voltage levels are in range and the waveforms look
+  correct.
+- On a StickS3: `M5.getBoard()` reports `M5StickS3`, the Proto Hat seats on
+  the Hat2 odd row, 3V3_L2 stays on while running, and the battery gauge
+  works.
+- On the StickS3's UIFlow 2.0: `tools/deploy.sh` runs cleanly (also from the
+  UIFlow launcher and after `erase_apps.py`), the Stick boots straight into
+  NES Radar and joins the saved Wi‑Fi, the status screen is legible, A resets
+  the server, B toggles the backlight, holding B powers off, and
+  [Going back to UIFlow](#going-back-to-uiflow) restores the launcher.
 
 Not yet done, and needed before this is more than experimental:
 
-- [ ] The [bench tests](#bench-tests-dmm-and-scope) below, stages 1–6.
 - [ ] Real NTSC console run: KSBA and KLAX for 30+ minutes each, on battery and
       on USB, including Select/airport changes, with no `LINK ERROR`.
-- [ ] On a StickS3: `M5.getBoard()` reports `M5StickS3`, the Proto Hat seats
-      on the Hat2 odd row, 3V3_L2 stays on while running, and the battery
-      gauge works.
-- [ ] On the StickS3's UIFlow 2.0: `tools/deploy.sh` runs cleanly (also from the UIFlow
-      launcher and after `erase_apps.py`), the Stick boots straight into NES
-      Radar and joins the saved Wi‑Fi, the status screen is legible, A resets
-      the server, B toggles the backlight, holding B powers off, and
-      [Going back to UIFlow](#going-back-to-uiflow) restores the launcher.
 - [ ] Certificate verification with `ca.der`.
 
 ## Bench tests (DMM and scope)
